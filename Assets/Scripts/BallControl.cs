@@ -8,6 +8,11 @@ using System.IO;
 
 public class BallControl : MonoBehaviour {
 
+    public bool FlagMoveAgent = true;
+    public bool FlagRewireTree = true;
+    public bool FlagInformedSampling = true;
+    public bool FlagRewiringCircle = true;
+
     static public bool flag_debug_on = true;
 
     public class regionInfo
@@ -1081,8 +1086,12 @@ public class BallControl : MonoBehaviour {
 
         //handeling dynamic obstacles
         float c_distance_ring = 0;
+        public bool FlagRewireTree = true;
+        public bool FlagInformedSampling = true;
+        public bool FlagRewiringCircle = true;
+
         ////////////////////////// end of defination of variables /////////////////////////////
-        
+
         /// <param name="pos">initial pos of agent</param>
         /// <param name="dir">initial direction of agent</param>
         /// <param name="radius">agent is assumed to be a ball with the size of radius</param>
@@ -1549,15 +1558,19 @@ public class BallControl : MonoBehaviour {
 
         public void sampleSpace(bool check_nodes_OnTree, bool flag_continue_time) //sample in 2D environment
         {
-            bool flag_informed_RRTStar = true;
+            bool flag_informed_RRTStar = FlagInformedSampling;
             float ratio_of_informed_sampling = 0.5f;
-
+            // if it is not sampling based on RT-RRT*, and only based on informed RRT*
+            if (FlagInformedSampling && !FlagRewiringCircle)
+            {
+                ratio_of_informed_sampling = 1.0f;
+            }
             float r_n = UnityEngine.Random.Range(0f, 1f);
             Vector2 sample_point = new Vector2();
             bool flag_set_sample_point = false;
             if (r_n < rateTowardGoal)
             {
-                //generate a sample toward the goal
+                //generate a greedy sample toward the goal
                 sample_point = new Vector2(goal_point[0], goal_point[1]);
                 flag_set_sample_point = true;
             }
@@ -1569,6 +1582,7 @@ public class BallControl : MonoBehaviour {
                 Vector2 m_regionX = new Vector2(min_range_x, max_range_x);
                 Vector2 m_regionZ = new Vector2(min_range_z, max_range_z);
                 bool flag_uniform_sampling_stateSpace = false;
+                // perform informed sampling inside an elips
                 if (best_cost_path < float.MaxValue && flag_informed_RRTStar && best_cost_path > cRadius && r_n < ratio_of_informed_sampling)
                 {
                     mNodeRRT root_node = (mNodeRRT)TreeNodes[current_root];
@@ -1585,6 +1599,8 @@ public class BallControl : MonoBehaviour {
                 }
                 else
                     flag_uniform_sampling_stateSpace = true;
+
+                // an unform sample inside the region
                 if (flag_uniform_sampling_stateSpace)
                 {
                     sample_point = Uniform_Sampling_stateSpace(m_regionX, m_regionZ);
@@ -1879,13 +1895,15 @@ public class BallControl : MonoBehaviour {
                 //////////////////////////end of this part controls the density of the tree///////////////////////////////////
             }
             else
+            {
                 min_index = index_nearest_node;
+            }
             //connect new node to the tree or just select the closet one
             int nParentNode_index = -1;
             if (insert_node)
             {
                 bool use_closest_node = true;
-                if (min_index_neighbor.Count > 0)//choose a father for znew and change father of other index 1 to k_near if it is necessary
+                if (min_index_neighbor.Count > 0 && FlagRewireTree)//choose a father for znew and change father of other index 1 to k_near if it is necessary
                 {
                     //choose father for zNew
                     float min_value_node = float.MaxValue;
@@ -1958,6 +1976,22 @@ public class BallControl : MonoBehaviour {
 
             int c_t = DateTime.Now.Millisecond;
             int d_t = 0;
+
+            if (!FlagRewireTree)
+            {
+                flag_continue = false;
+                queue_onTree_nodes.restart_queue(nParentNode);
+                queue_random_samples.restart_queue(nParentNode);
+            }
+
+            if (!FlagRewiringCircle)
+            {
+                queue_onTree_nodes.restart_queue(nParentNode);
+                if (choose_from_tree)
+                {
+                    flag_continue = false;
+                }
+            }
             while (flag_continue)// update other nodes as well
             {
 //                bool check_fathers_more_searchBall = false;
@@ -2332,8 +2366,8 @@ public class BallControl : MonoBehaviour {
         targetBody1.GetComponent<Rigidbody>().velocity = new Vector3(1, 0, 1);
         targetBody2.GetComponent<Rigidbody>().velocity = new Vector3(1, 0, -1);
         targetBody3.GetComponent<Rigidbody>().velocity = new Vector3(-1, 0, 0);
-
-        nSteps= 32;
+        
+        nSteps = 32;
 
         ///////////////////////////set params of RRT/////////////////////////////////////
         String str_file_name = myFileGenerator();
@@ -2341,9 +2375,16 @@ public class BallControl : MonoBehaviour {
         Vector3 agent_pos = controlledBody.transform.position;
         init_agent_pos = controlledBody.transform.position;
 
+        goal_poses = new ArrayList();
+        goal_poses.Add(new Vector3(3f, agent_pos[1], 3f));
+        goal_poses.Add(new Vector3(12.5f, agent_pos[1], 13f));
+        goal_poses.Add(new Vector3(-13.2f, agent_pos[1], -13.5f));
+        goal_poses.Add(new Vector3(9.5f, agent_pos[1], -13f));
+        goal_poses.Add(new Vector3(-13f, agent_pos[1], 13f));
+
         ballRadius = 0.5f;
-        yd = 0.5f;
-        xd = 0.5f;
+        xd = ((Vector3)goal_poses[0]).x;
+        yd = ((Vector3)goal_poses[0]).z;
         mRRT = new LazyRRT(new Vector3(agent_pos[0], 0.5f, agent_pos[2]), new Vector2(0, 1), ballRadius, new Vector2(xd, yd));
         index_on_RRT = 0;
         targetPos = new Vector3();
@@ -2355,17 +2396,11 @@ public class BallControl : MonoBehaviour {
         obstacles_pos.Add(targetBody1.transform.position);
         obstacles_pos.Add(targetBody2.transform.position);
         obstacles_pos.Add(targetBody3.transform.position);
-
-        goal_poses = new ArrayList();
-        goal_poses.Add(new Vector3(3f, agent_pos[1], 3f));
-        goal_poses.Add(new Vector3(12.5f, agent_pos[1], 13f));
-        goal_poses.Add(new Vector3(-13.2f, agent_pos[1], -13.5f));
-        goal_poses.Add(new Vector3(9.5f, agent_pos[1], -13f));
-        goal_poses.Add(new Vector3(-13f, agent_pos[1], 13f));
-
+        
         current_goal = new Vector3(xd, 0.5f, yd);
         next_goal_pos = 0;
 
+        return;
     }
 
     int get_delta_miliSec(int cur_mili_sec)
@@ -2436,7 +2471,9 @@ public class BallControl : MonoBehaviour {
         DrawAsteriskDebug(mRRT.mPoint2Dto3D(new Vector2(xd, yd)));
         Vector3 m_agent_pos = controlledBody.transform.position;
         mRRT.mSimulation_numberOfNodes = 0;
-
+        mRRT.FlagRewireTree = this.FlagRewireTree;
+        mRRT.FlagInformedSampling = this.FlagInformedSampling;
+        mRRT.FlagRewiringCircle = this.FlagRewiringCircle;
         ////////////////////////////////Simulataion: Test 1////////////////////////////
         //bool flag_write_on_file = false;
         //if (!mRRT.isPathFound())
@@ -2556,21 +2593,28 @@ public class BallControl : MonoBehaviour {
         mRRT.drawTree();
         //        cur_t = DateTime.Now.Millisecond;
         int next_index_onRRT = mRRT.find_best_path(index_on_RRT);
-        //RRT: update target point of C-PBP
-        move_to_pos = mRRT.setNextTargetPos(m_agent_pos, ref targetPos, ref index_on_RRT, next_index_onRRT);
+        //RRT: update target point of the controller
+        if (FlagMoveAgent)
+            move_to_pos = mRRT.setNextTargetPos(m_agent_pos, ref targetPos, ref index_on_RRT, next_index_onRRT);
         mRRT.update_costs_basedOn_movingObstacles(obstacles_pos);
 
-        Vector3 dir = (move_to_pos - m_agent_pos).normalized;
-        controlledBody.GetComponent<Rigidbody>().velocity = move_to_pos - m_agent_pos;
-
-        if (controlledBody.GetComponent<Rigidbody>().velocity.magnitude > 2.0f)
-            controlledBody.GetComponent<Rigidbody>().velocity = 2.0f * dir;
-        if (controlledBody.GetComponent<Rigidbody>().velocity.magnitude < 1.0f && (move_to_pos - m_agent_pos).magnitude > 0.01f)
-            controlledBody.GetComponent<Rigidbody>().velocity = 1.0f * dir;
+        if (FlagMoveAgent)
+        {
+            // a simple P controller to move the agent
+            Vector3 dir = (move_to_pos - m_agent_pos).normalized;
+            controlledBody.GetComponent<Rigidbody>().velocity = move_to_pos - m_agent_pos;
+            if (controlledBody.GetComponent<Rigidbody>().velocity.magnitude > 2.0f)
+                controlledBody.GetComponent<Rigidbody>().velocity = 2.0f * dir;
+            if (controlledBody.GetComponent<Rigidbody>().velocity.magnitude < 1.0f && (move_to_pos - m_agent_pos).magnitude > 0.01f)
+                controlledBody.GetComponent<Rigidbody>().velocity = 1.0f * dir;
+        }
+        else
+        {
+            controlledBody.GetComponent<Rigidbody>().velocity = new Vector3(0,0,0);
+        }
+        return;
     }
-
     
-
 	// Update is called once per frame
 	void Update () {
 	    
