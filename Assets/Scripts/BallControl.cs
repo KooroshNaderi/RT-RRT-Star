@@ -7,7 +7,7 @@ using System.Threading;
 using System.IO;
 
 public class BallControl : MonoBehaviour {
-
+    public bool FlagUseColor = true;
     public bool FlagMoveAgent = true;
     public bool FlagRewireTree = true;
     public bool FlagInformedSampling = true;
@@ -995,14 +995,14 @@ public class BallControl : MonoBehaviour {
             return;
         }
         
-        public float addNodeToQueueForStructure(ArrayList TreeNodes, mNodeRRT cNode, int numberOfneeded_changeStructure)
+        public float addNodeToQueueForStructure(ArrayList TreeNodes, mNodeRRT cNode, int numberOfneeded_changeStructure, bool FlagUseColor)
         {
             float added_node_cost = -1;
             if (cNode.numberOfUpdate_structure < numberOfneeded_changeStructure)
             {
                 addNodeToQueue(cNode);
                 cNode.numberOfUpdate_structure = numberOfneeded_changeStructure;
-                if (cNode.indexOfFather >= 0 && flag_debug_on)
+                if (cNode.indexOfFather >= 0 && flag_debug_on && FlagUseColor)
                 {
                     mNodeRRT fNode = (mNodeRRT)TreeNodes[cNode.indexOfFather];
                     Debug.DrawLine(cNode.objectPosition, fNode.objectPosition, Color.magenta);
@@ -1089,6 +1089,7 @@ public class BallControl : MonoBehaviour {
         public bool FlagRewireTree = true;
         public bool FlagInformedSampling = true;
         public bool FlagRewiringCircle = true;
+        public bool FlagUseColor = true;
 
         ////////////////////////// end of defination of variables /////////////////////////////
 
@@ -1550,8 +1551,8 @@ public class BallControl : MonoBehaviour {
             Vector2 center_SandE = (S_Point + E_Point) / 2f;
 
             Vector2 n_sample = new Vector2((float)rotated_x, (float)rotated_y) + center_SandE;//new Vector2((float)rotated_x, (float)rotated_y);
-
-            Debug.DrawLine((new Vector3(center_SandE[0], 0.5f, center_SandE[1])), (new Vector3(n_sample[0], 0.5f, n_sample[1])), Color.blue);
+            if (FlagUseColor)
+                Debug.DrawLine((new Vector3(center_SandE[0], 0.5f, center_SandE[1])), (new Vector3(n_sample[0], 0.5f, n_sample[1])), Color.blue);
 
             return n_sample;
         }
@@ -2056,7 +2057,8 @@ public class BallControl : MonoBehaviour {
 
                             cNode.indexOfFather = nParentNode.node_index_inTree;
                             mNodeRRT fNode = (mNodeRRT)TreeNodes[nParentNode.node_index_inTree];
-                            Debug.DrawLine(cNode.objectPosition + (new Vector3(0f, 0.3f, 0f)), fNode.objectPosition + (new Vector3(0f, 0.3f, 0f)), Color.green);
+                            if (FlagUseColor)
+                                Debug.DrawLine(cNode.objectPosition + (new Vector3(0f, 0.3f, 0f)), fNode.objectPosition + (new Vector3(0f, 0.3f, 0f)), Color.green);
 
                             if (CheckLoop_fathersOfNode(cNode.node_index_inTree, 10))//////////////////////////////////////////TODO: check this part!!!!!!!!!!!!!!!!!!!!!!
                             {
@@ -2096,7 +2098,7 @@ public class BallControl : MonoBehaviour {
                             mRegionManager.updateReachableNode(cNode, cur_pos_agent, radius_check_obstacle_region, radius_contact_region, cur_pos_obstacles);
                             if (nParentNode.getCostToReach(TreeNodes, numberOfUpdatingRoot + numberOfUpdatingObstacles + numberOfUpdatingStr) < curCost && nParentNode.reachable_node)
                             {
-                                float cost_ring = queue_onTree_nodes.addNodeToQueueForStructure(TreeNodes, cNode, numberOfUpdatingRoot + numberOfUpdatingStr);
+                                float cost_ring = queue_onTree_nodes.addNodeToQueueForStructure(TreeNodes, cNode, numberOfUpdatingRoot + numberOfUpdatingStr, FlagUseColor);
                                 if (cost_ring != -1 && c_distance_ring < cost_ring)
                                 {
                                     c_distance_ring = cost_ring;
@@ -2170,7 +2172,7 @@ public class BallControl : MonoBehaviour {
                     for (int j = 0; j < mN.child_nodes_index.Count; j++)
                     {
                         mNodeRRT mN_child = (mNodeRRT)TreeNodes[(int)mN.child_nodes_index[j]];
-                        if (mN_child.reachable_node)
+                        if (mN_child.reachable_node && FlagUseColor)
                             Debug.DrawLine(mN.objectPosition - (new Vector3(0f, 0.3f, 0f)), mN_child.objectPosition - (new Vector3(0f, 0.3f, 0f)), Color.yellow);
                     }
                 }
@@ -2474,6 +2476,7 @@ public class BallControl : MonoBehaviour {
         mRRT.FlagRewireTree = this.FlagRewireTree;
         mRRT.FlagInformedSampling = this.FlagInformedSampling;
         mRRT.FlagRewiringCircle = this.FlagRewiringCircle;
+        mRRT.FlagUseColor = this.FlagUseColor;
         ////////////////////////////////Simulataion: Test 1////////////////////////////
         //bool flag_write_on_file = false;
         //if (!mRRT.isPathFound())
